@@ -141,7 +141,7 @@ const App = () => {
           transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.25 }}
         >
           <div className="product-halo" />
-          <img src="/6.jpeg" alt="Amrutam A2 Bilona Cow Ghee jar" />
+          <img src="./6.jpeg" alt="Amrutam A2 Bilona Cow Ghee jar" />
           <div className="floating-badge badge-top">Vedic Bilona</div>
           <div className="floating-badge badge-bottom">Lab Tested</div>
         </motion.div>
@@ -224,8 +224,8 @@ const App = () => {
         <Reveal className="product-gallery" variants={fadeIn}>
           <img className="gallery-large" src="/6.jpeg" alt="Amrutam ghee closeup" />
           <div className="gallery-row">
-            <img src="/1.jpeg" alt="Health benefits of ghee" />
-            <img src="/4.jpeg" alt="Ghee wellness benefits" />
+            <img src="./1.jpeg" alt="Health benefits of ghee" />
+            <img src="./4.jpeg" alt="Ghee wellness benefits" />
           </div>
         </Reveal>
 
@@ -269,7 +269,7 @@ const App = () => {
           </p>
         </Reveal>
         <Reveal className="benefit-visual" variants={fadeIn}>
-          <img src="/3.jpeg" alt="Spoon pouring golden ghee" />
+          <img src="./3.jpeg" alt="Spoon pouring golden ghee" />
           <motion.div
             className="shine-card"
             initial={{ opacity: 0, y: 26 }}
@@ -302,7 +302,7 @@ const App = () => {
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="sticky-cta-info">
-              <img src="/6.jpeg" alt="" aria-hidden="true" />
+              <img src="./6.jpeg" alt="" aria-hidden="true" />
               <div>
                 <strong>Amrutam A2 Bilona Ghee</strong>
                 <span>₹1,200 · 1 Litre</span>

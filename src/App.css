@@ -292,7 +292,7 @@ button {
   z-index: -3;
   background:
     linear-gradient(90deg, rgba(24, 15, 4, 0.85), rgba(42, 23, 4, 0.6) 48%, rgba(255, 248, 232, 0.2)),
-    url('/5.jpeg') center/cover;
+    url('./5.jpeg') center/cover;
   /* Removed heavy heroZoom animation to fix hang issue */
 }
 
@@ -860,7 +860,7 @@ h2 {
   color: #fff8e8;
   background:
     linear-gradient(135deg, rgba(26, 19, 10, 0.95), rgba(74, 42, 10, 0.92)),
-    url('/3.jpeg') center/cover;
+    url('./3.jpeg') center/cover;
   box-shadow: var(--shadow);
 }
 
