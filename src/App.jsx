@@ -165,10 +165,10 @@ const App = () => {
 
       <section id="story" className="split-section">
         <Reveal className="image-stack" variants={fadeIn}>
-          <img className="stack-main" src="/5.jpeg" alt="Traditional ghee ingredients" />
+          <img className="stack-main" src="./5.jpeg" alt="Traditional ghee ingredients" />
           <motion.img
             className="stack-mini"
-            src="/2.jpeg"
+            src="./2.jpeg"
             alt="Amrutam Jar"
             initial={{ opacity: 0, x: 24, y: 24 }}
             whileInView={{ opacity: 1, x: 0, y: 0 }}
@@ -222,7 +222,7 @@ const App = () => {
 
       <section id="shop" className="shop-section">
         <Reveal className="product-gallery" variants={fadeIn}>
-          <img className="gallery-large" src="/6.jpeg" alt="Amrutam ghee closeup" />
+          <img className="gallery-large" src="./6.jpeg" alt="Amrutam ghee closeup" />
           <div className="gallery-row">
             <img src="./1.jpeg" alt="Health benefits of ghee" />
             <img src="./4.jpeg" alt="Ghee wellness benefits" />
