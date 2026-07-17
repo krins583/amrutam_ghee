@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { auth, db } from './firebase'; // db import kiya
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore'; // Firestore functions import kiye
+import Login from './components/Login';
 import './App.css';
 
 const benefits = [
@@ -16,14 +20,18 @@ const process = [
   'Packed in small batches for freshness',
 ];
 
+const slideshowImages = [
+  './s1.jpeg',
+  './s2.jpeg',
+  './s3.jpeg',
+  './s4.jpeg',
+  './s5.jpeg',
+];
+
 /* ---------- Shared motion presets ---------- */
 const fadeUp = {
   hidden: { opacity: 0, y: 36 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
-  },
+  show: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] } },
 };
 
 const fadeIn = {
@@ -33,9 +41,7 @@ const fadeIn = {
 
 const staggerParent = {
   hidden: {},
-  show: {
-    transition: { staggerChildren: 0.12, delayChildren: 0.08 },
-  },
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.08 } },
 };
 
 const staggerChild = {
@@ -43,7 +49,6 @@ const staggerChild = {
   show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
 };
 
-/* Reusable wrapper that reveals children once, on scroll into view */
 const Reveal = ({ as = 'div', className, children, variants = fadeUp, ...rest }) => {
   const Comp = motion[as] || motion.div;
   return (
@@ -64,6 +69,16 @@ const App = () => {
   const heroRef = useRef(null);
   const [scrolled, setScrolled] = useState(false);
   const [showStickyCta, setShowStickyCta] = useState(false);
+  
+  // Dynamic Pricing States
+  const [selectedSize, setSelectedSize] = useState('1kg');
+  const [price, setPrice] = useState(1900);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Auth States
+  const [showLogin, setShowLogin] = useState(false);
+  const [user, setUser] = useState(null);
+  const [userName, setUserName] = useState(''); // User ka naam store karne ke liye state
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -74,6 +89,68 @@ const App = () => {
   const heroBgY = useTransform(scrollYProgress, [0, 1], [0, 140]);
   const heroContentY = useTransform(scrollYProgress, [0, 1], [0, 40]);
   const heroContentOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+
+  // Track Authentication Status & Fetch User Name
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser && currentUser.emailVerified) {
+        setUser(currentUser);
+        
+        // Firestore se user ka naam nikalein
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            setUserName(userDoc.data().name);
+          } else {
+            setUserName('User'); // Agar naam na mile toh 'User' dikhaye
+          }
+        } catch (error) {
+          console.error("Error fetching user name:", error);
+          setUserName('User');
+        }
+        
+      } else {
+        setUser(null);
+        setUserName('');
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSizeChange = (size) => {
+    setSelectedSize(size);
+    if (size === '500gm') {
+      setPrice(950);
+    } else if (size === '1kg') {
+      setPrice(1900);
+    }
+  };
+
+  // Secure Checkout/Inquiry Function
+  const handleCheckout = (e) => {
+    e.preventDefault();
+    if (!user) {
+      setShowLogin(true);
+    } else {
+      alert(`Thank you for your inquiry, ${userName.split(' ')[0]}! We will contact you soon for your order of ${selectedSize} Amrutam Ghee.`);
+    }
+  };
+
+  // Logout with Confirmation
+  const handleLogout = async () => {
+    const confirmLogout = window.confirm('Are you sure you want to logout?');
+    if (confirmLogout) {
+      await signOut(auth);
+      alert('Logged out successfully');
+    }
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slideshowImages.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => {
@@ -99,7 +176,20 @@ const App = () => {
           <a href="#benefits">Benefits</a>
           <a href="#shop">Shop</a>
         </div>
-        <a className="nav-cta" href="#shop">Buy Now</a>
+        
+        {/* Dynamic Nav Button: Shows 'Hi, [Name]' when logged in */}
+        {user ? (
+          <button 
+            className="ghost-btn shine-hover" 
+            style={{minHeight: '38px', padding: '0 16px', fontSize: '0.85rem', textTransform: 'capitalize'}} 
+            onClick={handleLogout}
+            title="Click to logout"
+          >
+            Hi, {userName ? userName.split(' ')[0] : 'User'}
+          </button>
+        ) : (
+          <button className="nav-cta" onClick={() => setShowLogin(true)}>Login / Buy</button>
+        )}
       </nav>
 
       <section id="home" className="hero-section" ref={heroRef}>
@@ -122,9 +212,9 @@ const App = () => {
             grainy texture, and the warmth of traditional Indian kitchens.
           </p>
           <div className="hero-actions">
-            <a className="primary-btn shine-hover" href="#shop">
-              <span>Shop Pure Ghee</span>
-            </a>
+            <button className="primary-btn shine-hover" onClick={handleCheckout}>
+              <span>Order Pure Ghee</span>
+            </button>
             <a className="ghost-btn" href="#process">See Process</a>
           </div>
           <div className="hero-microproof">
@@ -141,7 +231,20 @@ const App = () => {
           transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.25 }}
         >
           <div className="product-halo" />
-          <img src="./6.jpeg" alt="Amrutam A2 Bilona Cow Ghee jar" />
+          <div className="relative w-full aspect-[4/5] rounded-[34px] overflow-hidden border-8 border-white/70 shadow-[0_24px_70px_rgba(83,54,11,0.18)]">
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={currentSlide}
+                src={slideshowImages[currentSlide]}
+                alt="Amrutam Premium Ghee Showcase"
+                className="absolute inset-0 w-full h-full object-cover"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.6, ease: 'easeInOut' }}
+              />
+            </AnimatePresence>
+          </div>
           <div className="floating-badge badge-top">Vedic Bilona</div>
           <div className="floating-badge badge-bottom">Lab Tested</div>
         </motion.div>
@@ -238,18 +341,32 @@ const App = () => {
             sweets, coffee, fasting food, and daily wellness rituals.
           </p>
           <div className="price-row">
-            <strong>₹1,200</strong>
-            <span>₹1,500</span>
+            <strong>₹{price.toLocaleString('en-IN')}</strong>
+            <span>₹{(price * 1.25).toLocaleString('en-IN')}</span>
             <small>Save 20%</small>
           </div>
+          
           <div className="size-row" aria-label="Choose size">
-            <button type="button" className="active">1 Litre</button>
-            <button type="button">500 ML</button>
-            <button type="button">250 ML</button>
+            <button 
+              type="button" 
+              className={selectedSize === '1kg' ? 'active' : ''} 
+              onClick={() => handleSizeChange('1kg')}
+            >
+              1kg
+            </button>
+            <button 
+              type="button" 
+              className={selectedSize === '500gm' ? 'active' : ''} 
+              onClick={() => handleSizeChange('500gm')}
+            >
+              500gm
+            </button>
           </div>
+
           <div className="checkout-row">
-            <button type="button" className="primary-btn shine-hover">Add to Cart</button>
-            <button type="button" className="dark-btn">Buy Now</button>
+            <button type="button" className="primary-btn shine-hover" onClick={handleCheckout}>
+              Send Inquiry
+            </button>
           </div>
           <div className="trust-line">
             <span>Free delivery</span>
@@ -288,10 +405,9 @@ const App = () => {
           <h2>AMRUTAM</h2>
           <p>Pure A2 Gir Cow Bilona Ghee, made with patience and tradition.</p>
         </div>
-        <a className="primary-btn shine-hover" href="#shop">Order Your Jar</a>
+        <button className="primary-btn shine-hover" onClick={handleCheckout}>Order Your Jar</button>
       </Reveal>
 
-      {/* Sticky conversion bar — appears once the hero has scrolled past */}
       <AnimatePresence>
         {showStickyCta && (
           <motion.div
@@ -305,13 +421,20 @@ const App = () => {
               <img src="./6.jpeg" alt="" aria-hidden="true" />
               <div>
                 <strong>Amrutam A2 Bilona Ghee</strong>
-                <span>₹1,200 · 1 Litre</span>
+                <span>₹{price.toLocaleString('en-IN')} · {selectedSize}</span>
               </div>
             </div>
-            <a className="primary-btn shine-hover" href="#shop">Buy Now</a>
+            <button className="primary-btn shine-hover" onClick={handleCheckout}>Buy Now</button>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Render Login Modal */}
+      <Login 
+        isOpen={showLogin} 
+        onClose={() => setShowLogin(false)} 
+        onLoginSuccess={(loggedInUser) => setUser(loggedInUser)} 
+      />
     </main>
   );
 };
