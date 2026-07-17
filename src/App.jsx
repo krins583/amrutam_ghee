@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
-import { auth, db } from './firebase'; // db import kiya
+import { auth, db } from './firebase'; 
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore'; // Firestore functions import kiye
+import { doc, getDoc } from 'firebase/firestore'; 
 import Login from './components/Login';
+import Cart from './components/Cart';
 import './App.css';
 
 const benefits = [
@@ -70,15 +71,25 @@ const App = () => {
   const [scrolled, setScrolled] = useState(false);
   const [showStickyCta, setShowStickyCta] = useState(false);
   
-  // Dynamic Pricing States
   const [selectedSize, setSelectedSize] = useState('1kg');
   const [price, setPrice] = useState(1900);
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // Auth States
+  // Auth & Cart States
   const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState(null);
-  const [userName, setUserName] = useState(''); // User ka naam store karne ke liye state
+  const [userName, setUserName] = useState('');
+  const [cartCount, setCartCount] = useState(0); 
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Premium Dialog State
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    type: 'alert',
+    title: '',
+    message: '',
+    action: null
+  });
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -90,25 +101,21 @@ const App = () => {
   const heroContentY = useTransform(scrollYProgress, [0, 1], [0, 40]);
   const heroContentOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
-  // Track Authentication Status & Fetch User Name
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser && currentUser.emailVerified) {
         setUser(currentUser);
-        
-        // Firestore se user ka naam nikalein
         try {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
             setUserName(userDoc.data().name);
           } else {
-            setUserName('User'); // Agar naam na mile toh 'User' dikhaye
+            setUserName('User');
           }
         } catch (error) {
           console.error("Error fetching user name:", error);
           setUserName('User');
         }
-        
       } else {
         setUser(null);
         setUserName('');
@@ -126,22 +133,73 @@ const App = () => {
     }
   };
 
-  // Secure Checkout/Inquiry Function
+  // Inquiry Handler
   const handleCheckout = (e) => {
     e.preventDefault();
     if (!user) {
       setShowLogin(true);
     } else {
-      alert(`Thank you for your inquiry, ${userName.split(' ')[0]}! We will contact you soon for your order of ${selectedSize} Amrutam Ghee.`);
+      setDialog({
+        isOpen: true,
+        type: 'alert',
+        title: 'Inquiry Sent!',
+        message: `Thank you for your inquiry, ${userName.split(' ')[0]}! We will contact you soon for your order of ${selectedSize} Amrutam Ghee.`,
+        action: null
+      });
     }
   };
 
-  // Logout with Confirmation
-  const handleLogout = async () => {
-    const confirmLogout = window.confirm('Are you sure you want to logout?');
-    if (confirmLogout) {
+  // Add to Cart Handler
+  const handleAddToCart = (e) => {
+    e.preventDefault();
+    if (!user) {
+      setShowLogin(true);
+    } else {
+      setCartCount(prev => prev + 1);
+      setDialog({
+        isOpen: true,
+        type: 'alert',
+        title: 'Added to Cart',
+        message: `Excellent choice! 1x ${selectedSize} Amrutam Ghee has been added to your cart.`,
+        action: null
+      });
+    }
+  };
+
+  const handleCartClick = () => {
+    if (!user) {
+      setShowLogin(true);
+    } else {
+      setIsCartOpen(true);
+    }
+  };
+
+  const handleLogoutClick = () => {
+    setDialog({
+      isOpen: true,
+      type: 'confirm',
+      title: 'Secure Logout',
+      message: 'Are you sure you want to log out of your Amrutam account?',
+      action: 'LOGOUT'
+    });
+  };
+
+  const handleDialogConfirm = async () => {
+    if (dialog.action === 'LOGOUT') {
+      setDialog({ ...dialog, isOpen: false });
       await signOut(auth);
-      alert('Logged out successfully');
+      setCartCount(0);
+      setTimeout(() => {
+        setDialog({
+          isOpen: true,
+          type: 'alert',
+          title: 'Logged Out',
+          message: 'You have been successfully logged out.',
+          action: null
+        });
+      }, 400);
+    } else {
+      setDialog({ ...dialog, isOpen: false });
     }
   };
 
@@ -164,7 +222,7 @@ const App = () => {
   }, []);
 
   return (
-    <main className="site-shell">
+    <><main className="site-shell">
       <nav className={`navbar${scrolled ? ' navbar-scrolled' : ''}`}>
         <a className="brand" href="#home" aria-label="Amrutam home">
           <span className="brand-mark">A</span>
@@ -176,20 +234,39 @@ const App = () => {
           <a href="#benefits">Benefits</a>
           <a href="#shop">Shop</a>
         </div>
-        
-        {/* Dynamic Nav Button: Shows 'Hi, [Name]' when logged in */}
-        {user ? (
-          <button 
-            className="ghost-btn shine-hover" 
-            style={{minHeight: '38px', padding: '0 16px', fontSize: '0.85rem', textTransform: 'capitalize'}} 
-            onClick={handleLogout}
-            title="Click to logout"
-          >
-            Hi, {userName ? userName.split(' ')[0] : 'User'}
+
+        <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {user ? (
+            <button
+              className="ghost-btn shine-hover"
+              style={{ minHeight: '42px', padding: '0 20px', fontSize: '0.85rem', textTransform: 'capitalize' }}
+              onClick={handleLogoutClick}
+              title="Click to logout"
+            >
+              Hi, {userName ? userName.split(' ')[0] : 'User'}
+            </button>
+          ) : (
+            <button className="nav-cta" onClick={() => setShowLogin(true)}>Login</button>
+          )}
+
+          <button className="cart-btn" onClick={handleCartClick} aria-label="View Cart">
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            {cartCount > 0 && (
+              <motion.span
+                className="cart-badge"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                key={cartCount}
+              >
+                {cartCount}
+              </motion.span>
+            )}
           </button>
-        ) : (
-          <button className="nav-cta" onClick={() => setShowLogin(true)}>Login / Buy</button>
-        )}
+        </div>
       </nav>
 
       <section id="home" className="hero-section" ref={heroRef}>
@@ -212,7 +289,7 @@ const App = () => {
             grainy texture, and the warmth of traditional Indian kitchens.
           </p>
           <div className="hero-actions">
-            <button className="primary-btn shine-hover" onClick={handleCheckout}>
+            <button className="primary-btn shine-hover" onClick={handleAddToCart}>
               <span>Order Pure Ghee</span>
             </button>
             <a className="ghost-btn" href="#process">See Process</a>
@@ -241,8 +318,7 @@ const App = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.6, ease: 'easeInOut' }}
-              />
+                transition={{ duration: 0.6, ease: 'easeInOut' }} />
             </AnimatePresence>
           </div>
           <div className="floating-badge badge-top">Vedic Bilona</div>
@@ -276,8 +352,7 @@ const App = () => {
             initial={{ opacity: 0, x: 24, y: 24 }}
             whileInView={{ opacity: 1, x: 0, y: 0 }}
             viewport={{ once: true, amount: 0.4 }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.25 }}
-          />
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.25 }} />
         </Reveal>
         <Reveal as="div" className="section-copy">
           <p className="eyebrow">From pasture to pooja thali</p>
@@ -300,9 +375,7 @@ const App = () => {
             <motion.span variants={staggerChild}>Deep roasted aroma</motion.span>
           </motion.div>
         </Reveal>
-      </section>
-
-      <section id="process" className="process-section">
+      </section><section id="process" className="process-section">
         <Reveal className="section-heading">
           <p className="eyebrow">The slow method</p>
           <h2>Bilona process, refined for a premium experience.</h2>
@@ -321,9 +394,7 @@ const App = () => {
             </motion.article>
           ))}
         </motion.div>
-      </section>
-
-      <section id="shop" className="shop-section">
+      </section><section id="shop" className="shop-section">
         <Reveal className="product-gallery" variants={fadeIn}>
           <img className="gallery-large" src="./6.jpeg" alt="Amrutam ghee closeup" />
           <div className="gallery-row">
@@ -345,18 +416,18 @@ const App = () => {
             <span>₹{(price * 1.25).toLocaleString('en-IN')}</span>
             <small>Save 20%</small>
           </div>
-          
+
           <div className="size-row" aria-label="Choose size">
-            <button 
-              type="button" 
-              className={selectedSize === '1kg' ? 'active' : ''} 
+            <button
+              type="button"
+              className={selectedSize === '1kg' ? 'active' : ''}
               onClick={() => handleSizeChange('1kg')}
             >
               1kg
             </button>
-            <button 
-              type="button" 
-              className={selectedSize === '500gm' ? 'active' : ''} 
+            <button
+              type="button"
+              className={selectedSize === '500gm' ? 'active' : ''}
               onClick={() => handleSizeChange('500gm')}
             >
               500gm
@@ -367,6 +438,9 @@ const App = () => {
             <button type="button" className="primary-btn shine-hover" onClick={handleCheckout}>
               Send Inquiry
             </button>
+            <button type="button" className="dark-btn shine-hover" onClick={handleAddToCart}>
+              Add to Cart
+            </button>
           </div>
           <div className="trust-line">
             <span>Free delivery</span>
@@ -374,9 +448,7 @@ const App = () => {
             <span>Fresh batch</span>
           </div>
         </Reveal>
-      </section>
-
-      <section id="benefits" className="benefits-section">
+      </section><section id="benefits" className="benefits-section">
         <Reveal as="div" className="benefit-copy">
           <p className="eyebrow">Daily spoon, deeper nourishment</p>
           <h2>Made for taste, digestion, strength, and glow.</h2>
@@ -398,17 +470,13 @@ const App = () => {
             <span>No additives. No shortcuts.</span>
           </motion.div>
         </Reveal>
-      </section>
-
-      <Reveal as="footer" className="footer" variants={fadeIn}>
+      </section><Reveal as="footer" className="footer" variants={fadeIn}>
         <div>
           <h2>AMRUTAM</h2>
           <p>Pure A2 Gir Cow Bilona Ghee, made with patience and tradition.</p>
         </div>
-        <button className="primary-btn shine-hover" onClick={handleCheckout}>Order Your Jar</button>
-      </Reveal>
-
-      <AnimatePresence>
+        <button className="primary-btn shine-hover" onClick={handleAddToCart}>Add to Cart</button>
+      </Reveal><AnimatePresence>
         {showStickyCta && (
           <motion.div
             className="sticky-cta"
@@ -424,18 +492,117 @@ const App = () => {
                 <span>₹{price.toLocaleString('en-IN')} · {selectedSize}</span>
               </div>
             </div>
-            <button className="primary-btn shine-hover" onClick={handleCheckout}>Buy Now</button>
+            <button className="primary-btn shine-hover" onClick={handleAddToCart}>Add to Cart</button>
+          </motion.div>
+        )}
+      </AnimatePresence><Login
+        isOpen={showLogin}
+        onClose={() => setShowLogin(false)}
+        onLoginSuccess={(loggedInUser) => setUser(loggedInUser)} /><Cart
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        user={user}
+        cartCount={cartCount}
+        price={price}
+        selectedSize={selectedSize}
+        onCheckoutSuccess={async (method, total) => {
+          setIsCartOpen(false);
+
+          // Show Processing Dialog
+          setDialog({
+            isOpen: true,
+            type: 'alert',
+            title: 'Processing Order...',
+            message: 'Please wait while we secure your premium order.',
+            action: null
+          });
+
+          // Prepare Data for Google Sheets
+          const orderData = {
+            name: userName || "Premium Customer",
+            phone: "Saved via Account",
+            items: `${cartCount}x ${selectedSize} Amrutam Ghee`,
+            amount: `₹${total}`,
+            address: "Saved Address",
+            payment: method
+          };
+
+          try {
+            // Yahan apna Google Apps Script Web App URL daalein
+await fetch('https://script.google.com/macros/s/AKfycbxTOS_jYYpWPvcsD3n6da9hqtYZeaIBRZVlJxWfEatd93ZPeINVRyJm0yjJBN3zb_E4/exec', {
+  method: 'POST',
+  mode: 'no-cors',
+  headers: {
+    'Content-Type': 'text/plain;charset=utf-8' // <--- BASS YAHAN 'text/plain' KARNA HAI
+  },
+  body: JSON.stringify(orderData),
+});
+            // Empty cart after successful order
+            setCartCount(0);
+
+            // Show Success Dialog
+            setDialog({
+              isOpen: true,
+              type: 'alert',
+              title: 'Order Successful! 🎉',
+              message: `Your premium order of ₹${total.toLocaleString('en-IN')} via ${method} is confirmed. It will be delivered to your saved address soon.`,
+              action: null
+            });
+          } catch (error) {
+            console.error("Order Error: ", error);
+            setDialog({
+              isOpen: true,
+              type: 'alert',
+              title: 'Order Error',
+              message: 'Something went wrong while placing your order. Please try again.',
+              action: null
+            });
+          }
+        }}
+      />
+
+      {/* --- Premium Custom Dialog UI --- */}
+      <AnimatePresence>
+        {dialog.isOpen && (
+          <motion.div
+            className="premium-dialog-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="premium-dialog-content"
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            >
+              <h3>{dialog.title}</h3>
+              <p>{dialog.message}</p>
+              
+              <div className="premium-dialog-actions">
+                {dialog.type === 'confirm' && (
+                  <button 
+                    className="dialog-btn-cancel" 
+                    onClick={() => setDialog({ ...dialog, isOpen: false })}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  className="dialog-btn-confirm"
+                  onClick={handleDialogConfirm}
+                >
+                  {dialog.type === 'confirm' ? 'Yes, Logout' : 'Okay'}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Render Login Modal */}
-      <Login 
-        isOpen={showLogin} 
-        onClose={() => setShowLogin(false)} 
-        onLoginSuccess={(loggedInUser) => setUser(loggedInUser)} 
-      />
     </main>
+    </>
   );
 };
 
